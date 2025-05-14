@@ -6,13 +6,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 from torchvision import datasets, models, transforms
+from models.resnet50 import get_resnet50
 import time
 import copy
 
-# ==== 1. GPU 설정 ====
+# ==== GPU 설정 ====
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# ==== 2. 데이터 전처리 ====
+# ==== 데이터 전처리 ====
 data_transforms = {
     'train': transforms.Compose([
         transforms.Resize((224, 224)),
@@ -34,27 +35,18 @@ dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=32,
                                               shuffle=True, num_workers=4)
               for x in ['train', 'val']}
 
-# ==== 3. 모델 불러오기 ====
-model = models.resnet50(pretrained=True)
-
-# ==== 4. feature extractor freeze ====
-for param in model.parameters():
-    param.requires_grad = False
-
-# ==== 5. classifier (fc) 부분만 수정 ====
-num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 14)  # NIH는 14개 멀티 라벨 클래스
+model = get_resnet50(num_classes=14, freeze_backbone=True)
 model = model.to(device)
 
-# ==== 6. 손실함수, 옵티마이저, 스케줄러 ====
+# ==== 손실함수, 옵티마이저, 스케줄러 ====
 criterion = nn.BCEWithLogitsLoss()  # 멀티라벨 분류
 optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
 scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-# ==== 7. AMP 세팅 ====
+# ==== AMP 세팅 ====
 scaler = torch.cuda.amp.GradScaler()
 
-# ==== 8. 학습 루프 ====
+# ==== 학습 루프 ====
 best_model_wts = copy.deepcopy(model.state_dict())
 best_loss = float('inf')
 
@@ -97,6 +89,6 @@ for epoch in range(epochs):
 
     scheduler.step()
 
-# ==== 9. 모델 저장 ====
+# ==== 모델 저장 ====
 model.load_state_dict(best_model_wts)
 torch.save(model.state_dict(), 'best_resnet50.pth')
