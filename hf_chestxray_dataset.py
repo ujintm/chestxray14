@@ -8,7 +8,8 @@ class HFChestXrayDataset(Dataset):
         self.transform = transform
 
         if label_map is None:
-            self.label_map = {label: i for i, label in enumerate(sorted(self.dataset.features["labels"].names))}
+            unique_labels = sorted({label for example in self.dataset for label in example["labels"]})
+            self.label_map = {label: i for i, label in enumerate(unique_labels)}
         else:
             self.label_map = label_map
 

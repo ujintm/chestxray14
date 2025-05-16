@@ -1,5 +1,3 @@
-# PyTorch 공식 튜토리얼(transfer learning)을 기반으로, 
-# ResNet50 + pretrained + freeze + AMP 학습 구조로 구성
 
 import os
 import time
@@ -28,15 +26,14 @@ data_transforms = {
     ]),
 }
 
-# Hugging Face 데이터셋 로드 및 Dataset 래핑
+# Hugging Face 데이터셋 로드
 ds_train = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", "image-classification", split="train[:80%]", trust_remote_code=True)
 ds_val = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", "image-classification", split="train[80%:]", trust_remote_code=True)
 
-
+# Dataset 래핑
 train_dataset = HFChestXrayDataset(ds_train, transform=data_transforms['train'])
 val_dataset = HFChestXrayDataset(ds_val, transform=data_transforms['val'], label_map=train_dataset.label_map)
 
-# DataLoader 생성
 dataloaders = {
     'train': DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4),
     'val': DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
@@ -49,7 +46,6 @@ dataset_sizes = {
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-# 모델 정의
 model = get_resnet50(num_classes=train_dataset.num_classes, freeze_backbone=True)
 model = model.to(device)
 
@@ -57,14 +53,13 @@ criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 scaler = torch.cuda.amp.GradScaler()
 
-# 학습 루프
-def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='checkpoints'):
+def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='checkpoints', start_epoch=0):
     os.makedirs(checkpoint_dir, exist_ok=True)
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_loss = float('inf')
 
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         print(f'Epoch {epoch+1}/{num_epochs}\n' + '-' * 10)
 
         for phase in ['train', 'val']:
@@ -96,15 +91,16 @@ def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='chec
             epoch_loss = running_loss / dataset_sizes[phase]
             print(f'{phase} Loss: {epoch_loss:.4f}')
 
-            # 체크포인트 저장
             if phase == 'val':
+                checkpoint_path = os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1:02d}.pth')
                 torch.save({
                     'epoch': epoch + 1,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'loss': epoch_loss,
                     'scaler': scaler.state_dict()
-                }, os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1:02d}.pth'))
+                }, checkpoint_path)
+                print(f"Checkpoint saved to {checkpoint_path}")
 
                 if epoch_loss < best_loss:
                     best_loss = epoch_loss
@@ -117,9 +113,32 @@ def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='chec
     model.load_state_dict(best_model_wts)
     return model
 
+# 이어서 학습을 위한 체크포인트 로드
+resume_path = 'checkpoint_interrupted.pth'
+start_epoch = 0
 
-# 모델 학습
-model = train_model(model, criterion, optimizer, num_epochs=10)
+if os.path.exists(resume_path):
+    print(f"🔁 Resuming from checkpoint: {resume_path}")
+    checkpoint = torch.load(resume_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scaler.load_state_dict(checkpoint['scaler'])
+    start_epoch = checkpoint['epoch']
+    print(f"➡️ Resuming from epoch {start_epoch}")
 
-# 모델 저장
+# 학습 실행 (try-except 포함)
+try:
+    model = train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='checkpoints', start_epoch=start_epoch)
+except KeyboardInterrupt:
+    print("⛔ Interrupted! Saving checkpoint...")
+    torch.save({
+        'epoch': start_epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': None,
+        'scaler': scaler.state_dict()
+    }, 'checkpoint_interrupted.pth')
+    print("✅ Saved to checkpoint_interrupted.pth")
+
+# 최종 모델 저장
 torch.save(model.state_dict(), 'best_resnet50.pth')
