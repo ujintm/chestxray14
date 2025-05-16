@@ -1,94 +1,124 @@
 # PyTorch 공식 튜토리얼(transfer learning)을 기반으로, 
 # ResNet50 + pretrained + freeze + AMP 학습 구조로 구성
 
+import os
+import time
+import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim import lr_scheduler
-from torchvision import datasets, models, transforms
+from torchvision import transforms
+from torch.utils.data import DataLoader
+from datasets import load_dataset
+from hf_chestxray_dataset import HFChestXrayDataset
 from models.resnet50 import get_resnet50
-import time
-import copy
 
-# ==== GPU 설정 ====
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-# ==== 데이터 전처리 ====
+# 데이터 전처리 정의
 data_transforms = {
     'train': transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
     'val': transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
 }
 
-# (예시용 폴더 구조)
-data_dir = 'data/images'  # NIH 데이터셋 압축 푼 경로에 맞게 수정
-image_datasets = {x: datasets.ImageFolder(root=f'{data_dir}/{x}',
-                                          transform=data_transforms[x])
-                  for x in ['train', 'val']}
-dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=32,
-                                              shuffle=True, num_workers=4)
-              for x in ['train', 'val']}
+# Hugging Face 데이터셋 로드 및 Dataset 래핑
+ds_train = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", split="train[:80%]")
+ds_val = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", split="train[80%:]")
 
-model = get_resnet50(num_classes=14, freeze_backbone=True)
+train_dataset = HFChestXrayDataset(ds_train, transform=data_transforms['train'])
+val_dataset = HFChestXrayDataset(ds_val, transform=data_transforms['val'], label_map=train_dataset.label_map)
+
+# DataLoader 생성
+dataloaders = {
+    'train': DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4),
+    'val': DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
+}
+
+dataset_sizes = {
+    'train': len(train_dataset),
+    'val': len(val_dataset)
+}
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# 모델 정의
+model = get_resnet50(num_classes=train_dataset.num_classes, freeze_backbone=True)
 model = model.to(device)
 
-# ==== 손실함수, 옵티마이저, 스케줄러 ====
-criterion = nn.BCEWithLogitsLoss()  # 멀티라벨 분류
-optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
-scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-
-# ==== AMP 세팅 ====
+criterion = nn.BCEWithLogitsLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 scaler = torch.cuda.amp.GradScaler()
 
-# ==== 학습 루프 ====
-best_model_wts = copy.deepcopy(model.state_dict())
-best_loss = float('inf')
+# 학습 루프
+def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='checkpoints'):
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    since = time.time()
+    best_model_wts = copy.deepcopy(model.state_dict())
+    best_loss = float('inf')
 
-epochs = 10
-for epoch in range(epochs):
-    print(f'Epoch {epoch+1}/{epochs}')
-    print('-' * 10)
+    for epoch in range(num_epochs):
+        print(f'Epoch {epoch+1}/{num_epochs}\n' + '-' * 10)
 
-    for phase in ['train', 'val']:
-        if phase == 'train':
-            model.train()
-        else:
-            model.eval()
-
-        running_loss = 0.0
-
-        for inputs, labels in dataloaders[phase]:
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-
+        for phase in ['train', 'val']:
             if phase == 'train':
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+                model.train()
+            else:
+                model.eval()
 
-            running_loss += loss.item() * inputs.size(0)
+            running_loss = 0.0
 
-        epoch_loss = running_loss / len(image_datasets[phase])
-        print(f'{phase} Loss: {epoch_loss:.4f}')
+            for inputs, labels in dataloaders[phase]:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
 
-        if phase == 'val' and epoch_loss < best_loss:
-            best_loss = epoch_loss
-            best_model_wts = copy.deepcopy(model.state_dict())
+                optimizer.zero_grad()
 
-    scheduler.step()
+                with torch.set_grad_enabled(phase == 'train'):
+                    with torch.cuda.amp.autocast():
+                        outputs = model(inputs)
+                        loss = criterion(outputs, labels)
 
-# ==== 모델 저장 ====
-model.load_state_dict(best_model_wts)
+                    if phase == 'train':
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
+
+                running_loss += loss.item() * inputs.size(0)
+
+            epoch_loss = running_loss / dataset_sizes[phase]
+            print(f'{phase} Loss: {epoch_loss:.4f}')
+
+            # 체크포인트 저장
+            if phase == 'val':
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'loss': epoch_loss,
+                    'scaler': scaler.state_dict()
+                }, os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1:02d}.pth'))
+
+                if epoch_loss < best_loss:
+                    best_loss = epoch_loss
+                    best_model_wts = copy.deepcopy(model.state_dict())
+
+    time_elapsed = time.time() - since
+    print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
+    print(f'Best val loss: {best_loss:.4f}')
+
+    model.load_state_dict(best_model_wts)
+    return model
+
+
+# 모델 학습
+model = train_model(model, criterion, optimizer, num_epochs=10)
+
+# 모델 저장
 torch.save(model.state_dict(), 'best_resnet50.pth')
