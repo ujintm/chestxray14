@@ -19,20 +19,20 @@ class HFChestXrayDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-    sample = self.dataset[idx]
-    image = sample['image']
-    labels = sample['labels']
+        sample = self.dataset[idx]
+        image = sample['image']
+        labels = sample['labels']
 
-    # ✅ 강제로 RGB 변환 추가
-    image = image.convert("RGB")
+        # ✅ 강제로 RGB 변환 추가
+        image = image.convert("RGB")
 
-    # 멀티라벨 바이너리 벡터로 변환
-    target = np.zeros(self.num_classes, dtype=np.float32)
-    for label in labels:
-        if label in self.label_map:
-            target[self.label_map[label]] = 1.0
+         # 멀티라벨 바이너리 벡터로 변환
+        target = np.zeros(self.num_classes, dtype=np.float32)
+        for label in labels:
+            if label in self.label_map:
+                target[self.label_map[label]] = 1.0
 
-    if self.transform:
-        image = self.transform(image)
+        if self.transform:
+            image = self.transform(image)
 
-    return image, torch.tensor(target)
+        return image, torch.tensor(target)
