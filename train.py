@@ -1,7 +1,7 @@
-
 import os
 import time
 import copy
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 from datasets import load_dataset
 from hf_chestxray_dataset import HFChestXrayDataset
 from models.resnet50 import get_resnet50
+from multilabel_metrics import compute_metrics
+
 
 # 데이터 전처리 정의
 data_transforms = {
@@ -92,6 +94,29 @@ def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='chec
             print(f'{phase} Loss: {epoch_loss:.4f}')
 
             if phase == 'val':
+                all_preds = []
+                all_labels = []
+
+                for inputs, labels in dataloaders[phase]:
+                    inputs = inputs.to(device)
+                    labels = labels.to(device)
+
+                    with torch.no_grad():
+                        with torch.cuda.amp.autocast():
+                            outputs = model(inputs)
+                            outputs = torch.sigmoid(outputs)
+
+                    all_preds.append(outputs.cpu().numpy())
+                    all_labels.append(labels.cpu().numpy())
+
+                y_pred = np.concatenate(all_preds)
+                y_true = np.concatenate(all_labels)
+
+                metrics = compute_metrics(y_true, y_pred, threshold=0.5)
+                print("📊 Validation metrics:")
+                for k, v in metrics.items():
+                    print(f"{k}: {v:.4f}")
+            
                 checkpoint_path = os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1:02d}.pth')
                 torch.save({
                     'epoch': epoch + 1,
