@@ -29,8 +29,9 @@ data_transforms = {
 }
 
 # Hugging Face 데이터셋 로드 및 Dataset 래핑
-ds_train = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", split="train[:80%]")
-ds_val = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", split="train[80%:]")
+ds_train = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", "image-classification", split="train[:80%]", trust_remote_code=True)
+ds_val = load_dataset("alkzar90/NIH-Chest-X-ray-dataset", "image-classification", split="train[80%:]", trust_remote_code=True)
+
 
 train_dataset = HFChestXrayDataset(ds_train, transform=data_transforms['train'])
 val_dataset = HFChestXrayDataset(ds_val, transform=data_transforms['val'], label_map=train_dataset.label_map)
