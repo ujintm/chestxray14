@@ -16,6 +16,12 @@ from datasets import load_dataset
 from hf_chestxray_dataset import HFChestXrayDataset
 from models.resnet50 import get_resnet50
 from multilabel_metrics import compute_metrics
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file')
+parser.add_argument('--start', type=int, default=None, help='Epoch to start training from')
+args = parser.parse_args()
 
 # -----------------------------
 # 1. 데이터 전처리(Augmentation)
@@ -190,17 +196,22 @@ def train_model(model, criterion, optimizer, num_epochs=30,
 # -----------------------------
 # 5. 이어서 학습(옵션)
 # -----------------------------
-resume_path = 'checkpoint_interrupted_v2.pth'
-start_epoch = 0
-
-if os.path.exists(resume_path):
-    print(f'🔁 Resuming from {resume_path}')
-    ckpt = torch.load(resume_path)
+if args.resume and os.path.exists(args.resume):
+    print(f'🔁 Resuming from {args.resume}')
+    ckpt = torch.load(args.resume)
     model.load_state_dict(ckpt['model_state_dict'])
     optimizer.load_state_dict(ckpt['optimizer_state_dict'])
     scaler.load_state_dict(ckpt['scaler'])
-    start_epoch = ckpt['epoch']
+
+    if args.start is not None:
+        start_epoch = args.start
+    else:
+        start_epoch = ckpt['epoch']
+
     print(f'➡️ Restart at epoch {start_epoch}')
+else:
+    print('🆕 Training from scratch')
+    start_epoch = 0
 
 # -----------------------------
 # 6. 학습 실행
