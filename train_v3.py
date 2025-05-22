@@ -151,6 +151,18 @@ def main(cfg):
         t, acc = tune_threshold(probs, labels, metric="acc")
         print(f"  ▸ val accuracy={acc:.4f} @ threshold={t:.2f}")
 
+        ckpt_path = os.path.join(checkpoint_dir,
+                         f'checkpoint_epoch_{epoch + 1:02d}.pth')
+        torch.save({
+            'epoch': epoch + 1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': epoch_loss,
+            'scaler': scaler.state_dict()
+        }, ckpt_path)
+        print(f'★ checkpoint saved ➜ {ckpt_path}')
+
+
         if acc > best_acc:
             best_acc, best_thresh = acc, t
             torch.save({
