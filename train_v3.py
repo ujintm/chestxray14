@@ -11,7 +11,7 @@ from tqdm import tqdm
 from datasets import load_dataset
 from hf_chestxray_dataset import HFChestXrayDataset
 from models.resnet50 import get_resnet50
-from utils.metrics import accuracy_multi, f1_auc_metrics
+from multilabel_metrics import compute_metrics
 
 def seed_everything(seed=42):
     import random
