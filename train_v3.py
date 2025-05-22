@@ -1,4 +1,3 @@
-# train_v3_hf.py
 import argparse, os, json, math, time
 import numpy as np
 import torch
@@ -40,7 +39,8 @@ def tune_threshold(probs, targets, metric="acc"):
         if metric == "acc":
             score = (preds == targets).mean()
         else:
-            score, *_ = f1_auc_metrics(preds, targets)
+            metrics = compute_metrics(targets, preds, threshold=None)
+            score = metrics["f1_macro"]  # 또는 "auc_macro"
         if score > best_score:
             best_score, best_t = score, t
     return best_t, best_score
@@ -107,8 +107,21 @@ def main(cfg):
     optimizer = optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5, T_mult=2)
 
+    start_epoch = 0
     best_acc, best_thresh = 0, 0.5
-    for epoch in range(cfg.epochs):
+    
+    if cfg.resume and os.path.exists(cfg.resume):
+        print(f"🔁 Resuming from {cfg.resume}")
+        ckpt = torch.load(cfg.resume)
+        model.load_state_dict(ckpt["state_dict"])
+        if "optimizer" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        if "threshold" in ckpt:
+            best_thresh = ckpt["threshold"]
+        start_epoch = cfg.start if cfg.start is not None else ckpt.get("epoch", 0)
+        print(f"➡️ Restarting at epoch {start_epoch}")
+    
+    for epoch in range(start_epoch, cfg.epochs):
         model.train()
         tot_loss = 0
         for x, y in tqdm(train_loader, desc=f"[{epoch+1}/{cfg.epochs}]"):
@@ -140,9 +153,12 @@ def main(cfg):
 
         if acc > best_acc:
             best_acc, best_thresh = acc, t
-            torch.save({"state_dict": model.state_dict(),
-                        "threshold": best_thresh},
-                       f"checkpoints/best_{cfg.arch}.pth")
+            torch.save({
+                "state_dict": model.state_dict(),
+                "threshold": best_thresh,
+                "epoch": epoch + 1,
+                "optimizer": optimizer.state_dict()
+            },f"checkpoints_v3/best_{cfg.arch}.pth")
             print("  ★ checkpoint saved")
 
     print(f"\n[Done] best acc={best_acc:.4f} @ thresh={best_thresh:.2f}")
@@ -154,5 +170,7 @@ if __name__ == "__main__":
     p.add_argument("--bs", type=int, default=32)
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--sampler", action="store_true")
+    p.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume")
+    p.add_argument("--start", type=int, default=None, help="Start epoch override")
     cfg = p.parse_args()
     main(cfg)
