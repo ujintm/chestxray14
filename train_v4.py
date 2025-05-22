@@ -146,14 +146,20 @@ for epoch in range(start_epoch, args.epochs):
                 csv.writer(f).writerow(row)
 
             # 에포크 체크포인트
-            ckpt_file = os.path.join(args.out, f"checkpoint_epoch_{epoch+1:02d}.pth")
-            torch.save({'epoch':epoch+1,
-                        'model_state_dict':model.state_dict(),
-                        'optimizer_state_dict':optimizer.state_dict(),
-                        'scaler':scaler.state_dict(),
-                        'best_acc':best_acc}, ckpt_file)
-            print(f"Checkpoint ➜ {ckpt_file}")
-
+            if (epoch + 1) % 5 == 0 or (epoch + 1) == args.epochs:
+                ckpt_file = os.path.join(
+                    args.out,
+                    f"checkpoint_epoch_{epoch+1:02d}.pth"
+                )
+                torch.save({
+                    'epoch': epoch + 1,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'scaler': scaler.state_dict(),
+                    'best_acc': best_acc
+                }, ckpt_file)
+                print(f"Checkpoint ➜ {ckpt_file}")
+            
             # best ckpt
             if acc > best_acc:
                 best_acc, best_wts = acc, copy.deepcopy(model.state_dict())
