@@ -13,7 +13,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 
 from datasets import load_dataset
-from hf_chestxray_dataset import HFChestXrayDataset
+from hf_chestxray_dataset import HFChestXrayDataset as ChestXRay14
 from models.resnet50 import get_resnet50
 from multilabel_metrics import compute_metrics
 import argparse
