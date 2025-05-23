@@ -39,8 +39,6 @@ resnet.eval(); densenet.eval()
 
 t_res = np.load(args.resnet_thresh); t_den = np.load(args.densenet_thresh)
 t_ens = (t_res + t_den) / 2          # 간단히 평균 threshold
-grid = np.arange(0.05, 0.951, 0.01)
-best_t = np.zeros(num_classes)
 
 # -------- inference -------------
 preds, labels = [], []
@@ -49,18 +47,30 @@ with torch.no_grad():
         x = x.to(device)
         p1 = torch.sigmoid(resnet(x))
         p2 = torch.sigmoid(densenet(x))
-        p  = (p1 + p2)/2            # 확률 평균
-        preds.append(p.cpu().numpy()); labels.append(y.numpy())
-preds = np.concatenate(preds); labels = np.concatenate(labels)
+        p  = (p1 + p2) / 2           # 앙상블 확률
+        preds.append(p.cpu().numpy())
+        labels.append(y.numpy())
 
-for k in range(num_classes):
-    best_t[k] = max(
-        grid,
-        key=lambda t: ((preds[:, k] > t) == labels[:, k]).mean()
-    )
+preds  = np.concatenate(preds)
+labels = np.concatenate(labels)
 
+# -------- global threshold sweep (accuracy 기준) ----------
+grid = np.arange(0.05, 0.951, 0.01)
+best_t = 0.5
+best_acc = 0.0
+
+for t in grid:
+    preds_bin = (preds > t).astype(int)
+    acc = (preds_bin == labels).mean()      # 전체 element-wise 정확도
+    if acc > best_acc:
+        best_acc = acc
+        best_t = t
+
+print(f"🔍 Best global threshold: {best_t:.2f} (accuracy={best_acc:.4f})")
+
+# 최종 metric 계산
 metrics = compute_metrics(labels, preds, threshold=best_t)
-np.save("ensemble_best_thresh.npy", best_t)
+np.save("ensemble_best_thresh_global.npy", np.array([best_t]))
 print("Ensemble metrics:")
 for k,v in metrics.items():
     print(f"{k}: {v:.4f}")
