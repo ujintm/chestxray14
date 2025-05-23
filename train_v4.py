@@ -105,7 +105,7 @@ for epoch in range(start_epoch, args.epochs):
                 with autocast():
                     logits = model(x)
                     loss = sigmoid_focal_loss(logits, y.float(),
-                                              alpha=0.25, gamma=2., reduction='mean')
+                                              alpha=0.4, gamma=1.5, reduction='mean')
                 if phase=='train':
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
