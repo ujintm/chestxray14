@@ -39,6 +39,8 @@ resnet.eval(); densenet.eval()
 
 t_res = np.load(args.resnet_thresh); t_den = np.load(args.densenet_thresh)
 t_ens = (t_res + t_den) / 2          # 간단히 평균 threshold
+grid = np.arange(0.05, 0.951, 0.01)
+best_t = np.zeros(num_classes)
 
 # -------- inference -------------
 preds, labels = [], []
@@ -51,7 +53,14 @@ with torch.no_grad():
         preds.append(p.cpu().numpy()); labels.append(y.numpy())
 preds = np.concatenate(preds); labels = np.concatenate(labels)
 
-metrics = compute_metrics(labels, preds, threshold=t_ens)
+for k in range(num_classes):
+    best_t[k] = max(
+        grid,
+        key=lambda t: ((preds[:, k] > t) == labels[:, k]).mean()
+    )
+
+metrics = compute_metrics(labels, preds, threshold=best_t)
+np.save("ensemble_best_thresh.npy", best_t)
 print("Ensemble metrics:")
 for k,v in metrics.items():
     print(f"{k}: {v:.4f}")
