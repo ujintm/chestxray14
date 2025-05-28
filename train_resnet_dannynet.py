@@ -27,7 +27,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # ---------- data ----------
 aug_train = transforms.Compose([
-    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),      # 논문값
+    transforms.RandomResizedCrop(320, scale=(0.8, 1.0)),      # 논문값
     transforms.RandomHorizontalFlip(),
     transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),               # 추가
     transforms.ToTensor(),
@@ -35,9 +35,11 @@ aug_train = transforms.Compose([
                          [0.229,0.224,0.225]),
 ])
 aug_val = transforms.Compose([
-    transforms.Resize((224,224)),
+    transforms.Resize(320),
+    transforms.CenterCrop(320),                           
     transforms.ToTensor(),
-    transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225]),
 ])
 
 ds_train = load_dataset("alkzar90/NIH-Chest-X-ray-dataset",
