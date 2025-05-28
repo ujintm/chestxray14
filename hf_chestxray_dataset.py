@@ -15,6 +15,15 @@ class HFChestXrayDataset(Dataset):
             self.label_map = label_map
 
         self.num_classes = len(self.label_map)
+        
+        self.labels = []
+        for example in self.dataset:
+            target = np.zeros(self.num_classes, dtype=np.float32)
+            for label in example["labels"]:
+                if label in self.label_map:
+                    target[self.label_map[label]] = 1.0
+            self.labels.append(target)
+        self.labels = np.array(self.labels)        
 
     def __len__(self):
         return len(self.dataset)
