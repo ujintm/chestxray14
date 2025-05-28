@@ -120,19 +120,26 @@ def train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='chec
                     writer.writerow([epoch + 1, f"{epoch_loss:.4f}"] + [f"{v:.4f}" for v in metrics.values()])
 
                 # checkpoint 저장
-                checkpoint_path = os.path.join(checkpoint_dir, f'checkpoint_epoch_{epoch+1:02d}.pth')
-                torch.save({
-                    'epoch': epoch + 1,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'loss': epoch_loss,
-                    'scaler': scaler.state_dict()
-                }, checkpoint_path)
-                print(f"Checkpoint saved to {checkpoint_path}")
+                if (epoch + 1) % 10 == 0 or (epoch + 1) == num_epochs:
+                    ckpt_path = os.path.join(
+                        checkpoint_dir, f"checkpoint_epoch_{epoch + 1:02d}.pth"
+                    )
+                    torch.save(
+                        {
+                            "epoch": epoch + 1,
+                            "model_state_dict": model.state_dict(),
+                            "optimizer_state_dict": optimizer.state_dict(),
+                            "loss": epoch_loss,
+                            "scaler": scaler.state_dict(),
+                        },
+                        ckpt_path,
+                    )
+                    print(f"Checkpoint saved → {ckpt_path}")
 
                 if epoch_loss < best_loss:
                     best_loss = epoch_loss
                     best_model_wts = copy.deepcopy(model.state_dict())
+                    
 
     # 그래프 저장
     log_file = os.path.join(checkpoint_dir, "metrics.csv")
@@ -171,7 +178,7 @@ if os.path.exists(resume_path):
 
 # 학습 실행
 try:
-    model = train_model(model, criterion, optimizer, num_epochs=10, checkpoint_dir='checkpoints', start_epoch=start_epoch)
+    model = train_model(model, criterion, optimizer, num_epochs=30, checkpoint_dir='checkpoints', start_epoch=start_epoch)
 except KeyboardInterrupt:
     print("⛔ Interrupted! Saving checkpoint...")
     torch.save({
