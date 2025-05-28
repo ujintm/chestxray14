@@ -50,8 +50,20 @@ ds_val   = load_dataset("alkzar90/NIH-Chest-X-ray-dataset",
                         split="train[80%:]", trust_remote_code=True)
 
 train_set = HFChestXrayDataset(ds_train, transform=aug_train)
+mask = train_set.labels.sum(axis=1) > 0
+train_set.labels = train_set.labels[mask]
+train_set.images = [img for i, img in enumerate(train_set.dataset['image']) if mask[i]]
+train_set.dataset = train_set.dataset.select(np.where(mask)[0])  # HF dataset도 동기화
+
 val_set   = HFChestXrayDataset(ds_val,   transform=aug_val,
                                label_map=train_set.label_map)
+mask = val_set.labels.sum(axis=1) > 0
+val_set.labels = val_set.labels[mask]
+val_set.images = [img for i, img in enumerate(val_set.dataset['image']) if mask[i]]
+val_set.dataset = val_set.dataset.select(np.where(mask)[0])
+
+print(f"[train] 남은 샘플 수: {len(train_set)}")
+print(f"[val]   남은 샘플 수: {len(val_set)}")
 
 loader = {
     'train': DataLoader(train_set, batch_size=args.bs,
