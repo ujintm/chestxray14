@@ -14,7 +14,7 @@ from multilabel_metrics import compute_metrics
 # ---------- arg ----------
 ap = argparse.ArgumentParser()
 ap.add_argument("--arch", choices=["resnet50","densenet121"], default="resnet50")
-ap.add_argument("--out", default="checkpoints_v4", help="체크포인트 폴더")
+ap.add_argument("--out", default="checkpoints_danny", help="체크포인트 폴더")
 ap.add_argument("--bs",   type=int, default=64)
 ap.add_argument("--epochs", type=int, default=50)
 ap.add_argument("--lr",     type=float, default=3e-4)
@@ -150,7 +150,7 @@ for epoch in range(start_epoch, args.epochs):
                 csv.writer(f).writerow(row)
 
             # 에포크 체크포인트
-            if (epoch + 1) % 5 == 0 or (epoch + 1) == args.epochs:
+            if (epoch + 1) % 10 == 0 or (epoch + 1) == args.epochs:
                 ckpt_file = os.path.join(
                     args.out,
                     f"checkpoint_epoch_{epoch+1:02d}.pth"
