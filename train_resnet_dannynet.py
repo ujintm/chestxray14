@@ -27,11 +27,12 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # ---------- data ----------
 aug_train = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),      # 논문값
     transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
+    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),               # 추가
     transforms.ToTensor(),
-    transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
+    transforms.Normalize([0.485,0.456,0.406],
+                         [0.229,0.224,0.225]),
 ])
 aug_val = transforms.Compose([
     transforms.Resize((224,224)),
@@ -66,7 +67,7 @@ else:
     model = get_densenet121(num_classes, freeze_backbone=False)
 model.to(device)
 
-optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+optimizer = optim.AdamW(model.parameters(), lr=5e-5, weight_decay=1e-4)
 # 2-epoch warm-up + cosine
 T_warm = len(loader['train'])*2
 sched_warm = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1,
@@ -74,7 +75,8 @@ sched_warm = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1,
 sched_cos  = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
                                                             T_0=5, T_mult=2)
 scaler = GradScaler()
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+              optimizer, mode='min', factor=0.5, patience=2)
 
 start_epoch, best_acc, best_wts = 0, 0., copy.deepcopy(model.state_dict())
 
@@ -94,6 +96,10 @@ if not os.path.exists(csv_path):
     with open(csv_path,'w',newline='') as f:
         csv.writer(f).writerow(['epoch','val_loss','thr_mode','accuracy','f1_macro','auc_macro'])
 
+criterion = sigmoid_focal_loss           # 그대로 사용
+ALPHA = 1.0                              # 논문은 α=1 (또는 class_weight)
+GAMMA = 2.0                              # 논문 값
+
 for epoch in range(start_epoch, args.epochs):
     print(f"\nEpoch {epoch+1}/{args.epochs}")
     for phase in ['train','val']:
@@ -106,8 +112,8 @@ for epoch in range(start_epoch, args.epochs):
             with torch.set_grad_enabled(phase=='train'):
                 with autocast():
                     logits = model(x)
-                    loss = sigmoid_focal_loss(logits, y.float(),
-                                              alpha=0.4, gamma=1.5, reduction='mean')
+                    loss = criterion(logits, y.float(),
+                 alpha=ALPHA, gamma=GAMMA, reduction='mean')
                 if phase=='train':
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
