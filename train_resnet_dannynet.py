@@ -81,7 +81,7 @@ model.to(device)
 
 optimizer = optim.AdamW(model.parameters(), lr=5e-5, weight_decay=1e-4)
 
-scaler = GradScaler(device_type='cuda')
+scaler = GradScaler()
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
               optimizer, mode='min', factor=0.5, patience=2)
 
