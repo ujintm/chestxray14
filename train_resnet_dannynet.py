@@ -1,7 +1,7 @@
 import os, csv, copy, math, argparse
 import numpy as np, torch, torch.nn as nn, torch.optim as optim
 from torchvision.ops import sigmoid_focal_loss
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.ops import sigmoid_focal_loss
@@ -82,13 +82,8 @@ else:
 model.to(device)
 
 optimizer = optim.AdamW(model.parameters(), lr=5e-5, weight_decay=1e-4)
-# 2-epoch warm-up + cosine
-T_warm = len(loader['train'])*2
-sched_warm = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.1,
-                                         total_iters=T_warm)
-sched_cos  = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                                            T_0=5, T_mult=2)
-scaler = GradScaler()
+
+scaler = GradScaler(device_type='cuda')
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(
               optimizer, mode='min', factor=0.5, patience=2)
 
@@ -139,12 +134,6 @@ for epoch in range(start_epoch, args.epochs):
 
             running_loss += loss.item()*x.size(0)
             val_loss = loss.item() if phase == 'val' else None
-
-            # warm-up / cosine lr step
-            if phase=='train':
-                gstep = epoch*len(loader['train']) + step
-                if gstep < T_warm: sched_warm.step()
-                else: sched_cos.step(epoch + step/len(loader['train']))
 
         epoch_loss = running_loss / ds_len[phase]
         if phase == 'val': scheduler.step(epoch_loss)
