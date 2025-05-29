@@ -104,7 +104,8 @@ if not os.path.exists(csv_path):
         csv.writer(f).writerow(['epoch','val_loss','thr_mode','accuracy','f1_macro','auc_macro'])
 
 criterion = sigmoid_focal_loss           # 그대로 사용
-ALPHA = 1.0                              # 논문은 α=1 (또는 class_weight)
+freq = train_set.labels.mean(0)
+ALPHA = torch.tensor(1.0 / (freq + 1e-6), device=device)
 GAMMA = 2.0                              # 논문 값
 
 for epoch in range(start_epoch, args.epochs):
