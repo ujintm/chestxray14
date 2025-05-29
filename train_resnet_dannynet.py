@@ -27,9 +27,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # ---------- data ----------
 aug_train = transforms.Compose([
-    transforms.RandomResizedCrop(320, scale=(0.8, 1.0)),      # 논문값
+    transforms.RandomResizedCrop(320, scale=(0.8, 1.0)),    
     transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),               # 추가
+    transforms.ColorJitter(0.4, 0.4, 0.4, 0.1),              
     transforms.ToTensor(),
     transforms.Normalize([0.485,0.456,0.406],
                          [0.229,0.224,0.225]),
@@ -52,9 +52,9 @@ ds_val   = load_dataset("alkzar90/NIH-Chest-X-ray-dataset",
 train_set = HFChestXrayDataset(ds_train, transform=aug_train)
 mask = train_set.labels.sum(axis=1) > 0
 train_set.labels = train_set.labels[mask]
-train_set.dataset = train_set.dataset.select(np.where(mask)[0])  # HF dataset도 동기화
+train_set.dataset = train_set.dataset.select(np.where(mask)[0]) 
 
-val_set   = HFChestXrayDataset(ds_val,   transform=aug_val,
+val_set = HFChestXrayDataset(ds_val, transform=aug_val,
                                label_map=train_set.label_map)
 mask = val_set.labels.sum(axis=1) > 0
 val_set.labels = val_set.labels[mask]
@@ -125,6 +125,10 @@ for epoch in range(start_epoch, args.epochs):
                     scaler.scale(loss).backward()
                     scaler.step(optimizer)
                     scaler.update()
+                    
+            if epoch == 0 and step == 0:
+                p = torch.sigmoid(logits)
+                print("📊 모델 출력 (step 0):", f"mean={p.mean():.4f}, min={p.min():.4f}, max={p.max():.4f}")
 
             if phase=='val':
                 preds_all.append(torch.sigmoid(logits).cpu().numpy())
@@ -158,10 +162,7 @@ for epoch in range(start_epoch, args.epochs):
 
             # 에포크 체크포인트
             if (epoch + 1) % 10 == 0 or (epoch + 1) == args.epochs:
-                ckpt_file = os.path.join(
-                    args.out,
-                    f"checkpoint_epoch_{epoch+1:02d}.pth"
-                )
+                ckpt_file = os.path.join(args.out, f"checkpoint_epoch_{epoch+1:02d}.pth")
                 torch.save({
                     'epoch': epoch + 1,
                     'model_state_dict': model.state_dict(),
@@ -176,6 +177,6 @@ for epoch in range(start_epoch, args.epochs):
                 best_acc, best_wts = acc, copy.deepcopy(model.state_dict())
                 torch.save(best_wts, os.path.join(args.out, "best_model.pth"))
                 np.save(os.path.join(args.out, "best_thresh.npy"), best_t)
-                print("★ New best saved!")
+                print("New best saved")
 
 print(f"\n[Done] best accuracy = {best_acc:.4f}")
