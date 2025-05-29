@@ -1,7 +1,7 @@
 import os, csv, copy, math, argparse
 import numpy as np, torch, torch.nn as nn, torch.optim as optim
 from torchvision.ops import sigmoid_focal_loss
-from torch.amp import GradScaler, autocast
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.ops import sigmoid_focal_loss
