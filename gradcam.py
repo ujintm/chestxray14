@@ -72,12 +72,10 @@ def main(args):
                                 freeze_backbone=False)
         target_layer = model.features[-1]        # DenseNet 마지막 conv
 
-    # 체크포인트 로드
     state = torch.load(args.ckpt, map_location=device)
     model.load_state_dict(state)
     model.to(device)
 
-    # 이미지 불러오기
     img_pil   = Image.open(args.image).convert("RGB")
     img_tensor= preprocess(img_pil).to(device)
 
