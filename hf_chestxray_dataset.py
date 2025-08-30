@@ -33,7 +33,7 @@ class HFChestXrayDataset(Dataset):
         image = sample['image']
         labels = sample['labels']
 
-        # ✅ 강제로 RGB 변환 추가
+        # 강제로 RGB 변환 추가
         image = image.convert("RGB")
 
          # 멀티라벨 바이너리 벡터로 변환
