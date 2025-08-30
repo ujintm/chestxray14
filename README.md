@@ -1,1 +1,1 @@
-[바이오_20233081.pdf](https://github.com/user-attachments/files/22056473/_20233081.pdf)
+[ChestX-ray 다중 질환 분류 모델.pdf](https://github.com/user-attachments/files/22056477/ChestX-ray.pdf)
