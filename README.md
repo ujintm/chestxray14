@@ -1,8 +1,9 @@
 # ChestX-ray Multi-label Disease Classification
 
 NIH ChestX-ray14 데이터셋을 활용한 흉부 X-ray 다중 질환 분류 프로젝트입니다.  
-단일 이미지에서 14개 질환 소견을 동시에 예측하는 multi-label classification 모델을 구축하고,  
-클래스 불균형 문제에 대응하기 위한 다양한 기법(Focal Loss, pos_weight, per-class threshold 등)을 실험했습니다.  
+ResNet50, DenseNet121 등 기존 backbone을 가져와 multi-label classification에 적용해보고,  
+극심한 클래스 불균형 문제에 어떤 기법(Focal Loss, pos_weight, per-class threshold 등)이 효과가 있는지 실험하며 원인을 진단해본 프로젝트입니다.
+
 
 ## 프로젝트 목표
 
