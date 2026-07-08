@@ -64,7 +64,7 @@ for k in range(num_classes):
 metrics = compute_metrics(labels, probs, threshold=best_t)
 np.save(args.out, best_t)
 
-print(f"✅ Saved best threshold → {args.out}")
-print("\n📊 Ensemble Metrics (best threshold):")
+print(f" Saved best threshold → {args.out}")
+print("\n Ensemble Metrics (best threshold):")
 for k, v in metrics.items():
     print(f"{k}: {v:.4f}")

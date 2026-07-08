@@ -46,7 +46,7 @@ best_thresh = np.zeros(num_classes)
 for k in range(num_classes):
     best_thresh[k] = max(grid, key=lambda t: ((y_pred[:, k] > t) == y_true[:, k]).mean())
 
-print("\n📊 클래스별 성능 지표:")
+print("\n 클래스별 성능 지표:")
 for k in range(num_classes):
     y_t = y_true[:, k]
     y_p = (y_pred[:, k] > best_thresh[k]).astype(int)
