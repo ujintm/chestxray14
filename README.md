@@ -61,7 +61,7 @@ ResNet50, DenseNet121 등 기존 backbone을 가져와 multi-label classificatio
 - **v1**: ImageNet 사전학습 feature만으로는 흉부 X-ray 도메인 표현에 한계 → backbone unfreeze 필요성 확인
 - **v2~v4**: `pos_weight`로 클래스 불균형 대응, threshold sweep(0.05~0.95) 도입 → ResNet50에서 얻을 수 있는 성능을 최대한 끌어냄
 - **v5**: Focal Loss로 헷갈리는 양성 샘플에 집중, per-class threshold 도입. ResNet+DenseNet 앙상블 시도했으나 두 모델 성향이 유사해 앙상블 효과는 미미
-- **v6**: DenseNet121 + Focal Loss(γ=2, α=1/freq) + AdamW + ReduceLROnPlateau. 전처리에서 No Finding 제거, patient-level split 대신 이미지 단위 8:2 랜덤 분할 적용. alpha=1로 실험 시 collapse 현상 발생 확인. 참고 논문의 보고 AUC(0.85)에 근접한 0.84를 달성하여 재현이 유의미하다고 판단, 해당 지점에서 실험을 마무리
+- **v6**: 논문 세팅을 최대한 재현. 전처리에서 No Finding 제거, patient-level split 대신 이미지 단위 8:2 랜덤 분할 적용. alpha=1로 실험 시 collapse 현상 발생 확인. 참고 논문의 보고 AUC(0.85)에 근접한 0.84를 달성하여 재현이 유의미하다고 판단, 해당 지점에서 실험을 마무리
 
 ### 주요 실험 인사이트
 1. **Backbone freeze → unfreeze**: ImageNet은 일반 사물(강아지, 고양이, 컵 등) 분류 데이터셋이라 흉부 X-ray와 도메인이 달라, 사전학습 feature만으로는 세밀한 병변 구분이 어려움
@@ -104,7 +104,3 @@ ResNet50, DenseNet121 등 기존 backbone을 가져와 multi-label classificatio
 - Strick, Garcia, Huang, "Reproducing and Improving CheXNet: Deep Learning for Chest X-ray Disease Classification" (2025)
 - He et al., "Deep Residual Learning for Image Recognition" (ResNet)
 - Huang et al., "Densely Connected Convolutional Networks" (DenseNet)
-
----
-
-**작성자**: 김유진 (20233081)
